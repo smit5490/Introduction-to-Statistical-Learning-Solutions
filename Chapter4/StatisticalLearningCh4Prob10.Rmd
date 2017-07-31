@@ -1,0 +1,183 @@
+---
+title: "Introduction to Statistical Learning Chapter 4 Problem 10"
+author: "Robert Smith"
+date: "7/30/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+10. This question should be answered using the Weekly data set, which is part of the ISLR package. This data is similar in nature to the Smarket data from this chapter's lab, except that it contains 1089 weekly returns for 21 years, from the beginning of 1990 to the end of 2010.
+
+(a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?
+
+```{r,echo=T}
+library(ISLR);library(corrplot)
+data(Weekly)
+
+summary(Weekly)
+pairs(Weekly)
+cor_data<-cor(Weekly[,-9])
+corrplot(cor_data,method="color",type="upper")
+plot(Weekly$Year,Weekly$Volume)
+```
+
+There are no correlations except between Volume and Year.
+
+(b) Use the full data set to perform a logistic regression with Direction as th response and the five lag variables plus Volume as predictors. Use the summary function to pring the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+
+```{r,echo=T}
+log_mod<-glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,Weekly,family=binomial)
+summary(log_mod)
+```
+
+Lag2 is the only statistically significant predictor at a 95% confidence level.
+
+(c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.
+```{r,echo=T}
+model_probs=predict(log_mod,type="response")
+model_pred=rep("Down",1089)
+model_pred[model_probs>.5]="Up"
+
+table(model_pred,Weekly$Direction)
+
+#Consider use of confusionMatrix() in caret package
+accr=(54+557)/1089
+sens=54/(430+54)
+spec=557/(557+48)
+print(paste("Model Accuracy:",accr,sep=" "))
+#Going a little above and beyond
+print(paste("Model Sensitivity:",round(sens,3),sep=" "))
+print(paste("Model Specificity:", round(spec,3),sep=" "))
+```
+
+The logistic model is biased in predicting "Up" for the direction of the stock market. This results in a sensitivity of 0.112 and specificity of 0.921
+
+(d) Now fit the logistic regression model using the training data from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).
+
+```{r,echo=T}
+train<-Weekly[Weekly$Year<2009,]
+test<-Weekly[Weekly$Year>=2009,]
+
+log_mod<-glm(Direction~Lag2,train,family=binomial)
+model_probs<-predict(log_mod,test,type="response")
+
+model_pred=rep("Down",nrow(test))
+model_pred[model_probs>.5]="Up"
+
+table(model_pred,test$Direction)
+accr=(9+56)/nrow(test)
+sens=56/(56+5)
+spec=9/(9+34)
+
+mod_results<-data.frame(Model="Logistic",Accuracy=accr,Sensitivity=sens,Specificity=spec)
+
+print(paste("Model Accuracy:",accr,sep=" "))
+#Going a little above and beyond
+print(paste("Model Sensitivity:",round(sens,3),sep=" "))
+print(paste("Model Specificity:", round(spec,3),sep=" "))
+```
+
+(e) Repeat (d) using LDA:
+```{r,echo=T}
+library(MASS)
+lda_mod<-lda(Direction~Lag2,train)
+lda_mod
+```
+
+Let's take a moment to describe the model results. 
+- Prior Probabilities of Groups - the % of occurence of each group in the training set. The data indicate "Down" occurs 44.8% of the time and "Up" occurs 55.2% of the time. 
+
+- Group Means - the average predictor within each class. For example, Lag2 has a mean value of -0.0357 when the market goes down and 0.2604 when the market goes up. This indicates that the Lag2 variable typically goes in the same direction as the market.
+
+- Coefficients of Linear Discriminants - the linear combination of Lag1 and Lag2 used to form the LDA decision boundary. 
+
+```{r,echo=T}
+model_pred<-predict(lda_mod,test)
+
+## Note an LDA prediction returns:
+##  - class,the class (predicted market direction)
+##  - posterior, a matrix of posterior probabilities that correspond
+##    to the observation belonging to the kth class (Up or Down)
+##  - x, the linear discriminant result
+
+table(model_pred$class,test$Direction)
+accr=(9+56)/nrow(test)
+sens=56/(56+5)
+spec=9/(9+34)
+
+#Add results of each model to dataframe
+mod_results<-rbind(mod_results,data.frame(Model="LDA",Accuracy=accr,Sensitivity=sens,Specificity=spec))
+
+print(paste("Model Accuracy:",accr,sep=" "))
+
+#Going a little above and beyond
+print(paste("Model Sensitivity:",round(sens,3),sep=" "))
+print(paste("Model Specificity:", round(spec,3),sep=" "))
+```
+
+Note - results are the same as (d).
+
+(f) Repeat (d) using QDA:
+```{r,echo=T}
+qda_mod<-qda(Direction~Lag2,train)
+qda_mod
+model_pred<-predict(qda_mod,test)
+
+table(model_pred$class,test$Direction)
+
+accr=61/nrow(test)
+sens=61/61
+spec=0/43
+
+mod_results<-rbind(mod_results,data.frame(Model="QDA",Accuracy=accr,Sensitivity=sens,Specificity=spec))
+
+print(paste("Model Accuracy:",round(accr,3),sep=" "))
+
+#Going a little above and beyond
+print(paste("Model Sensitivity:",round(sens,3),sep=" "))
+print(paste("Model Specificity:", round(spec,3),sep=" "))
+```
+
+The model predictions the market will always go "Up".
+
+(g) Repeat (d) using KNN with K=1.
+```{r,ech=T}
+library(class)
+
+train<-Weekly[Weekly$Year<2009,3]
+test<-Weekly[Weekly$Year>=2009,3]
+
+train_direction<-Weekly[Weekly$Year<2009,9]
+test_direction<-Weekly[Weekly$Year>=2009,9]
+
+knn_pred<-knn(data.frame(train),data.frame(test),train_direction,k=1)
+
+table(knn_pred,test_direction)
+accr=(21+31)/length(test)
+sens=(31)/(31+30)
+spec=(21)/(21+22)
+
+mod_results<-rbind(mod_results,data.frame(Model="KNN_1",Accuracy=accr,Sensitivity=sens,Specificity=spec))
+
+print(paste("Model Accuracy:",round(accr,3),sep=" "))
+
+#Going a little above and beyond
+print(paste("Model Sensitivity:",round(sens,3),sep=" "))
+print(paste("Model Specificity:", round(spec,3),sep=" "))
+```
+
+(h) Which of these methods appears to provide the best results on this data?
+Logistic regression and LDA had the best accuracy
+```{r,echo=T}
+print(mod_results)
+```
+
+Logistic Regression and LDA provide the best accuracy and sensitivity. 
+

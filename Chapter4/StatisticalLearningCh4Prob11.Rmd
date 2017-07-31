@@ -1,0 +1,118 @@
+---
+title: 'Introduction to Statistical Learning Chapter 4 Problem 11'
+author: "Robert Smith"
+date: "7/30/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+(11) In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the Auto data set.
+
+(a) Create a binary variable, mpg01, that contains a 1 if mpg contains a value above its median, and a 0 if mpg contains a value below its median. You can compute the median using the median() function. Note you may find it helpful to use the data.frame() function to create a single data set containing both mpg01 and the other Auto variables.
+```{r,echo=T}
+library(ISLR)
+data(Weekly)
+data("Auto")
+mpg01 <- ifelse(Auto$mpg > median(Auto$mpg), 1, 0)
+df<-data.frame(Auto,mpg01)
+```
+
+(b) Explore the data graphically in order to investigate the association between mpg01 and the other features. Which of the other features seem most likely to be useful in predicting mpg01? Scatterplots and boxplots may be useful tools to answer this question. Describe your findings.
+```{r,echo=T}
+library(ggplot2)
+pairs(df,col=factor(df$mpg01))
+
+##Displacement, Horsepower & Weight seem to have good separation:
+boxplot(displacement~mpg01,data=df)
+boxplot(horsepower~mpg01,data=df)
+boxplot(weight~mpg01,data=df)
+
+#Additional separation achieved when considering multivariate scenarios:
+ggplot(df,aes(horsepower,weight,col=factor(mpg01)))+geom_point()
+```
+
+(c) Split data into training and test set.
+```{r,echo=T}
+set.seed(12345)
+train<-sample(392,196)
+train_set<-df[train,]
+test_set<-df[-train,]
+```
+
+(d) Perform LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+```{r,echo=T}
+library(MASS)
+lda_mod<-lda(mpg01~displacement+horsepower+weight,train_set)
+lda_mod
+
+model_pred<-predict(lda_mod,test_set)
+
+table(model_pred$class,test_set$mpg01)
+accr=(78+90)/nrow(test_set)
+test_error<-1-accr
+print(paste("Model Test Error:",round(test_error,3),sep=" "))
+```
+Model test error is 14.3%
+
+(e) Perform QDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+
+```{r,echo=T}
+qda_mod<-qda(mpg01~displacement+horsepower+weight,train_set)
+qda_mod
+model_pred<-predict(qda_mod,test_set)
+
+table(model_pred$class,test_set$mpg01)
+
+accr=170/nrow(test_set)
+sens=91/(91+2)
+spec=79/(79+24)
+
+test_error<-1-accr
+print(paste("Model Test Error:",round(test_error,3),sep=" "))
+```
+
+(f) Perform logistic regression on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+```{r,echo=T}
+log_mod<-glm(mpg01~displacement+horsepower+weight,train_set,family=binomial)
+model_probs<-predict(log_mod,test_set,type="response")
+
+model_pred=rep(0,nrow(test_set))
+model_pred[model_probs>.5]=1 #Can also use: as.numeric(model_probs>.5)
+
+table(model_pred,test_set$mpg01)
+accr=(81+88)/nrow(test_set)
+sens=88/(88+5)
+spec=81/(81+22)
+
+test_error<-1-accr
+print(paste("Model Test Error:",round(test_error,3),sep=" "))
+```
+
+(g) Perform KNN on the training data, with several values of K, in order to predict mpg01. Use only the variables that seemed most associated with mpg01 in (b). What test errors do you obtain? Which value of K seems to perform the best on this data set?
+```{r,echo=T}
+library(class)
+
+#Must scale observations first for KNN
+train_set_standardized<-scale(train_set[,c("displacement","horsepower","weight")])
+test_set_standardized<-scale(test_set[,c("displacement","horsepower","weight")])
+
+test_error_list<-rep(NA,20)
+for (i in 1:20) {
+knn_pred<-knn(train_set_standardized,test_set_standardized,train_set$mpg01,k=i)
+conf_matrix<-table(knn_pred,test_set$mpg01)
+accr = (conf_matrix[1,1]+conf_matrix[2,2])/nrow(test_set)
+test_error<-1-accr
+test_error_list[i]<-test_error
+}
+plot(1:20,test_error_list,type="b",xlab="K",ylab="Test Error",main="Test Error for Varying K")
+```
+
+A value of K=4 appears to perform best.
+
