@@ -1,0 +1,73 @@
+---
+title: "Introduction to Statistical Learning Chapter 5 Problem 7"
+author: "Robert Smith"
+date: "7/30/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+(7) In Sections 5.3.2 and 5.3.3, we saw that the cv.glm() function can be used in order to compute the LOOCV test error estimate. Alternatively, one could compute those quantities using just the glm() and predict.glm() functions, and a for loop. You will now take this approach in order to compute the LOOCV error for a simple logistic regression model on the Weekly data set. Recall that in the context of classification problems, the LOOCV error is given in (5.4).
+
+(a) Fit a logistic regression model that predicts Direction using Lag1 and Lag2.
+```{r,echo=T}
+library(ISLR)
+data(Weekly)
+
+log_model<-glm(Direction~Lag1+Lag2,data=Weekly,family=binomial)
+summary(log_model)
+```
+
+(b) Fit a logistic regression model that predicts Direction using Lag1 and Lag2 using all but the first observation
+```{r,echo=T}
+train<-Weekly[-1,]
+test<-Weekly[1,]
+
+log_model<-glm(Direction~Lag1+Lag2,data=train,family=binomial)
+summary(log_model)
+```
+
+(c) Use the model from (b) to predict the direction of the first observation. You can do this by predicting that the first observation will go up if P(Direction="Up"|Lag1,Lag2) > 0.5. Was this observation correctly classified?
+```{r,echo=T}
+model_probs<-predict(log_model,newdata=test,type="response")
+model_probs>.5 #Model Predicts "Yes"
+test$Direction
+```
+The observation was incorrectly classified.
+
+(d) Write a for loop from i=1 and i=n, where n is the number of observatoins in the data set, that performs each of the following steps:
+```{r,echo=T}
+##Fit a logistic regression model using all but the ith obseration to predict Direction using Lag1 and Lag2.
+n<-data.frame(Prediction=numeric())
+count<-rep(0,nrow(Weekly))
+for (i in 1:nrow(Weekly)){
+  train<-Weekly[-i,]
+  test<-Weekly[i,]
+
+  ##Compute the posterior probability of the market moving up for the ith observation
+
+  log_model<-glm(Direction~Lag1+Lag2,data=train,family=binomial)
+
+##Use the posterior probability for the ith observation in order to predict whether or not the market moves up.
+  model_probs<-predict(log_model,newdata=test,type="response")
+
+  if(model_probs>.5){n[i,1]<-"Up"}else{n[i,1]<-"Down"}
+
+#Determine whether or not an error was made in predicting the direction for the ith observation. If an error was made, then indicate this as a 1, and otherwise indicate it as a 0.
+  if(n[i,1]!=Weekly$Direction[i]){count[i]=1}
+}
+sum(count)
+```
+
+(e) Take the average of the n numbers obtained in (d)iv in order to obtain the LOOCV estimate for the test error. Comment on the results
+```{r, echo=T}
+mean(count)
+```
+
+The test error is estimated to be 45% using LOOCV.

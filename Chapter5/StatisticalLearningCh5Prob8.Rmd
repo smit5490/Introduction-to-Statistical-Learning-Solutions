@@ -1,0 +1,87 @@
+---
+title: "Introduction to Statistical Learning Chapter 5 Problem 8"
+author: "Robert Smith"
+date: "7/30/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+(8) We will now perform cross-validation on a simulated data set.
+
+(a) Generate a simulated data set as follows
+```{r,echo=T}
+set.seed(1)
+y=rnorm(100)
+x=rnorm(100)
+y=x-2*x^2+rnorm(100)
+```
+What is n?
+n is the number of observations, 100.
+
+What is p?
+p is the degree of polynomial, 2.
+
+(b)Plot X against Y. 
+```{r,echo=T}
+plot(y~x)
+```
+
+Y is quadratic in X.
+
+(c) Set a random seed, and then compute the LOOCV errors that result from fitting the following four models using least squares:
+```{r,echo=T}
+##Y = Bo+B1*X+e
+##Y = Bo+B1*X+B2*X^2+e
+##Y = Bo+B1*X+B2*X^2+B3*X^3+e
+##Y = Bo+B1*X+B2*X^2+B3*X^3+B4*X^4+e
+
+library(boot)
+data<-data.frame(x,y)
+list<-c()
+
+for (i in 1:4){
+set.seed(12345)
+mod_fit<-glm(y~poly(x,i),data=data)
+err<-cv.glm(data,mod_fit)$delta
+list<-append(list,err)
+}
+
+list
+```
+
+(d) Repeat (c) using another random seed, and report your results. Are your results the same as you got in (c)? Why?  
+```{r,echo=T}
+list<-c()
+
+for (i in 1:4){
+set.seed(54321)
+mod_fit<-glm(y~poly(x,i),data=data)
+err<-cv.glm(data,mod_fit)$delta
+list<-append(list,err)
+}
+
+list
+```
+Cross validation error results are the same regardless of the seed used. This is because LOOCV considers every possible partiton of the data set.
+
+(e) Which of the models in (c) had the smallest LOOCV error? Is this what you expected? Explain your answer.
+
+The cross validation error is lowest for a quadratic model. This is expected since Y is modeled as a quadratic function of X. 
+
+(f) Comment on the statistical signifiance of the coefficient estimatse that results from fittin geach of the models in (c) using least squares. Do these results agree with the conclusions drawn based on the cross-validation results?
+
+Consider the highest degree polynomial results:
+```{r,echo=T}
+set.seed(54321)
+mod_fit<-glm(y~poly(x,4),data=data)
+print(summary(mod_fit))
+
+```
+Significance is only for a polynomial of degree 2. These agree with the results of cross-validation.

@@ -1,0 +1,96 @@
+---
+title: "Introduction to Statistical Learning Chapter 5 Problem 5"
+author: "Robert Smith"
+date: "July 30, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+5. In Chapter 4, we used logistic regression to predict the probability of default using income and balance on the Default data set. We will now estimate the test error of this logistic regression model using the validation set approach. Do not forget to set a random seed before beginning your analysis.
+
+(a) Fit a logistic regression model that uses income and balance to predict default.
+
+```{r,echo=T}
+library(ISLR)
+data(Default)
+
+log_model<-glm(default~income+balance,data=Default,family=binomial)
+
+summary(log_model)
+```
+
+(b) Using the validation set approach, estimate the test error of this model. In order to do this, you must perform the following steps:
+
+```{r, echo=T}
+##Split the sample set into a training set and a validation set.
+set.seed(12345)
+train<-sample(10000,5000)
+
+##Fit a multiple logistic regression model using only the training observations.
+log_model<-glm(default~income+balance,data=Default,family=binomial,subset=train)
+
+##Obtain a prediction of default status for each individual in the validation set by computing the posterior probability of default for that individual, and classifying the individual to the default category if the posterior probability is greater than 0.5.
+model_probs<-predict(log_model,newdata=Default[-train,],type="response")
+
+model_pred=rep("No",5000)
+model_pred[model_probs>.5]="Yes"
+
+##Compute the validation set error, which is the fraction of the observations in the validation set that are misclassified.
+table(model_pred,Default[-train,1])
+
+mean(model_pred!=Default[-train,1])
+```
+
+(c) Repeat the process in (b) three times, using three different splits of the observations into a training set and a validation set. Comment on the results obtained.
+
+```{r, echo=T}
+##1
+set.seed(12345)
+train<-sample(10000,5000)
+log_model<-glm(default~income+balance,data=Default,family=binomial,subset=train)
+model_probs<-predict(log_model,newdata=Default[-train,],type="response")
+model_pred=rep("No",5000)
+model_pred[model_probs>.5]="Yes"
+error1<-mean(model_pred!=Default[-train,1])
+
+##2
+set.seed(54321)
+train<-sample(10000,5000)
+log_model<-glm(default~income+balance,data=Default,family=binomial,subset=train)
+model_probs<-predict(log_model,newdata=Default[-train,],type="response")
+model_pred=rep("No",5000)
+model_pred[model_probs>.5]="Yes"
+error2<-mean(model_pred!=Default[-train,1])
+
+##3
+set.seed(32145)
+train<-sample(10000,5000)
+log_model<-glm(default~income+balance,data=Default,family=binomial,subset=train)
+model_probs<-predict(log_model,newdata=Default[-train,],type="response")
+model_pred=rep("No",5000)
+model_pred[model_probs>.5]="Yes"
+error3<-mean(model_pred!=Default[-train,1])
+
+print(error1);print(error2);print(error3)
+```
+The error rate is roughly 2.7%
+
+(d) Now consider a logistic regression model that predicts the probability of default using income, balance, and a dummy variable for student. Estimate the test error for this model using the validation set approach. Comment on wheither or not including a dummy variable for student leads to a reduction in the test error rate.
+
+```{r,echo=T}
+set.seed(12345)
+train<-sample(10000,5000)
+log_model<-glm(default~income+balance+student,data=Default,family=binomial,subset=train)
+model_probs<-predict(log_model,newdata=Default[-train,],type="response")
+model_pred=rep("No",5000)
+model_pred[model_probs>.5]="Yes"
+error<-mean(model_pred!=Default[-train,1])
+```
+There is no reduction in the error rate when using a dummy variable. 

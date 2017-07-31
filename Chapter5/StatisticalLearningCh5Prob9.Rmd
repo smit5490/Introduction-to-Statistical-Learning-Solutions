@@ -1,0 +1,85 @@
+---
+title: "Introduction to Statistical Learning Chapter 5 Problem 9"
+author: "Robert Smith"
+date: "7/30/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+(9) We will now consider the Boston housing data set, from the MASS library.
+
+(a) Based on this data set, provide an estimate for the population mean of medv.
+```{r,echo=T}
+library(MASS)
+data(Boston)
+uhat<-mean(Boston$medv)
+print(uhat)
+```
+
+(b) Provide an estimate of the standard error of uhat
+```{r,echo=T}
+SE<-sd(Boston$medv)/sqrt(nrow(Boston))
+print(SE)
+```
+
+(c) Now estimate the standard error of uhat using the boostrap. How does this compare to your answer from (b)?
+```{r,echo=T}
+library(boot)
+set.seed(12345)
+boot.fn<-function(data,index) mean(Boston$medv[index])
+bootstp<-boot(Boston,boot.fn,1000)
+print(bootstp)
+```
+The bootstrap standard error is slightly lower than the estimated SE.
+
+(d) Based on your bootstrap sample estimate from (c), provide 95% confidence intervals using the formula: [uhat - 2*SE(uhat),uhat + 2*SE(uhat)]
+```{r,echo=T}
+lower<-bootstp$t0 - 2*0.3997714
+upper<-bootstp$t0 + 2*0.3997714
+bounds<-c(lower,upper)
+print(bounds)
+```
+
+Compare it to the results obtained using t.test(Boston$medv)
+```{r,echo=T}
+t.test(Boston$medv)
+```
+Confidence intervals are within first decimal accuracy.
+
+(e) Based on this data set, provide an estimate uhat_med, for the median value of the medv in the population.
+```{r,echo=T}
+uhat_med<-median(Boston$medv)
+print(uhat_med)
+```
+
+(f) We now would like to estimate the standard error of uhat_med. Unfortunately there is no simple formula for computing the standard error of the median. Instead, estimate the standard error of the median using the bootstrap. Comment on your findings.
+
+```{r,echo=T}
+set.seed(12345)
+boot.fn<-function(data,index) median(Boston$medv[index])
+bootstp<-boot(Boston,boot.fn,1000)
+print(bootstp)
+```
+The median and bootstrap value are the same. 
+
+(g) Based on this data set, provide an estimate for the tenth percentile of the medv in Boston suburbs. Call this quantity uhat_0.1. 
+```{r,echo=T}
+uhat_0.1<-quantile(Boston$medv,0.1)
+print(uhat_0.1)
+```
+
+(f) Use the bootstrap to estimate the standard error of uhat_0.1. Comment on your findings.
+```{r,echo=T}
+set.seed(12345)
+boot.fn<-function(data,index) quantile(Boston$medv[index],0.1)
+bootstp<-boot(Boston,boot.fn,1000)
+print(bootstp)
+```
+The quantile and bootstrap estimate are the same.
