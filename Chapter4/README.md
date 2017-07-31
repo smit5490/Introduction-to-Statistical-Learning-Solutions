@@ -1,5 +1,5 @@
 # Statistical Learning Chapter 4
-This folder contains the solutions to select problems from Chapter 4 of [Introduction to Statistical Learning](http://www-bcf.usc.edu/~gareth/ISL/).
+This folder contains the solutions to select problems from Chapter 4 of an [Introduction to Statistical Learning](http://www-bcf.usc.edu/~gareth/ISL/).
 
 This chapter covers various classification algorithms, including:
 * Logistic Regression
