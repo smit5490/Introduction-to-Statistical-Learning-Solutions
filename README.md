@@ -1,4 +1,4 @@
-# Introduction to Statistical Learning
+# Introduction to Statistical Learning Solutions
 This repository contains the solutions to select problems from the book an [Introduction to Statistical Learning](http://www-bcf.usc.edu/~gareth/ISL/).
 
 A folder has been created for each chapter.
