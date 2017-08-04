@@ -10,6 +10,6 @@ This chapter covers linear model selection and regularization methods, including
   * Ridge
 * Dimension Reduction
   * Principal Components Regression
-  * Partial Least Squares
+  * Partial Least Squares Regression
 
 Each problem solution is coded in R-markdown that knits to an html document.
