@@ -1,0 +1,120 @@
+---
+title: "Introduction to Statistical Learning Chapter 6 Problem 9"
+author: "Robert Smith"
+date: "8/3/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+9. In this exercise, we will predict the number of applications received using the other variables in the College data set.
+
+(a) Split the data set into a training set and a test set.
+```{r,echo=T}
+library(ISLR)
+data(College)
+
+set.seed(1234)
+obs<-nrow(College)
+train_obs<-sample(1:obs,obs*.7)
+train_set<-College[train_obs,]
+test_set<-College[-train_obs,]
+```
+
+(b) Fit a linear model using least squares on the training set, and
+report the test error obtained.
+```{r,echo=T}
+lm_model<-lm(Apps~.,data=train_set)
+test_results<-predict(lm_model,test_set)
+lm.err<-mean((test_results-test_set$Apps)^2)
+lm.err
+```
+
+
+(c) Fit a ridge regression model on the training set, with λ chosen
+by cross-validation. Report the test error obtained.
+```{r,echo=T}
+library(glmnet)
+X_train<-model.matrix(Apps~.,data=train_set)[,-1]
+X_test<-model.matrix(Apps~.,data=test_set)[,-1]
+
+set.seed(1234)
+grid=10^seq(10,-2,length=1000)
+cv.ridge.mod=cv.glmnet(X_train,train_set[,"Apps"],alpha=0,lambda=grid,thresh=1e-12)
+
+plot(cv.ridge.mod)
+bestlam<-cv.ridge.mod$lambda.min
+bestlam
+```
+
+Test Error:
+```{r,echo=T}
+ridge_pred<-predict(cv.ridge.mod,s=bestlam,newx=X_test)
+ridge.err<-mean((ridge_pred-test_set[,"Apps"])^2)
+ridge.err
+```
+
+(d) Fit a lasso model on the training set, with λ chosen by cross- validation. Report the test error obtained, along with the num-
+ber of non-zero coefficient estimates.
+```{r,echo=T}
+set.seed(1234)
+grid=10^seq(10,-2,length=1000)
+cv.lasso.mod=cv.glmnet(X_train,train_set[,"Apps"],alpha=1,lambda=grid,thresh=1e-12)
+
+plot(cv.lasso.mod)
+bestlam<-cv.lasso.mod$lambda.min
+bestlam
+```
+
+Test Error & Coefficients:
+```{r,echo=T}
+lasso_pred<-predict(cv.lasso.mod,s=bestlam,newx=X_test)
+lasso.err<-mean((lasso_pred-test_set[,"Apps"])^2)
+lasso.err
+
+lasso_coef=predict(cv.lasso.mod,type="coefficients",s=bestlam)
+print(lasso_coef)
+```
+
+(e) Fit a PCR model on the training set, with M chosen by cross- validation. Report the test error obtained, along with the value of M selected by cross-validation.
+```{r,echo=T}
+library(pls)
+set.seed(1234)
+pcr.fit<-pcr(Apps~.,data=train_set,scale=T,validation="CV")
+
+validationplot(pcr.fit,val.type="MSEP")
+
+pcr.pred<-predict(pcr.fit,test_set,ncomp=17)
+pcr.err<-mean((pcr.pred-test_set$Apps)^2)
+pcr.err
+```
+
+(f) Fit a PLS model on the training set, with M chosen by cross- validation. Report the test error obtained, along with the value of M selected by cross-validation.
+
+```{r,echo=T}
+set.seed(1234)
+pls.fit<-plsr(Apps~.,data=train_set,scale=T,validation="CV")
+summary(pls.fit)
+
+validationplot(pls.fit,val.type="MSEP")
+
+pls.pred<-predict(pls.fit,test_set,ncomp=13)
+pls.err<-mean((pls.pred-test_set$Apps)^2)
+pls.err
+```
+
+
+(g) Comment on the results obtained. How accurately can we pre- dict the number of college applications received? Is there much difference among the test errors resulting from these five ap- proaches?
+```{r,echo=T}
+error_list<-data.frame(Model=c("OLS","Ridge","Lasso","PCR","PLS"),CV_MSE=c(lm.err,ridge.err,lasso.err,pcr.err,pls.err))
+
+barplot(error_list$CV_MSE,names.arg=error_list$Model)
+```
+
+There is not a significant difference among the model test errors. Models can generally predict the number of applicants to within ~1050 applications.
