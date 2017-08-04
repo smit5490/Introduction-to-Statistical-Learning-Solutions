@@ -1,0 +1,139 @@
+---
+title: "Introduction to Statistical Learning Chapter 6 Problem 11"
+author: "Robert Smith"
+date: "7/4/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+11. We will now try to predict per capita crime rate in the Boston data set.
+
+(a) Try out some of the regression methods explored in this chapter, such as best subset selection, the lasso, ridge regression, and PCR. Present and discuss results for the approaches that you consider.
+
+##Exploratory Data Analysis
+```{r,echo=T}
+library(MASS);library(corrplot)
+seed<-1234
+data(Boston)
+dim(Boston)
+
+#Consider High Level Summary
+summary(Boston)
+
+#Check for null values
+sum(is.na(Boston))
+
+#Check for collinearity
+corr.values<-cor(Boston)
+corrplot(corr.values,method="ellipse",type="upper")
+```
+
+Our correlation plot indicates moderate correlation of crime with rad and tax. The following algorithms will be implemented with 10-fold cross-validation on the entire data set. The RMSE will be compared amongst models.
+
+##Full Linear Model
+```{r,echo=T}
+library(boot)
+set.seed(seed)
+glm.fit<-glm(crim~.,data=Boston)
+cv.glm.mod=cv.glm(Boston,glm.fit,K=10)
+print(paste("Full Linear Model RMSE:",sqrt(cv.glm.mod$delta)[1],sep=" "))
+```
+
+##Best Subset Selection
+```{r,echo=T}
+#Best Subset Selection Using Cross-Validation
+library(leaps)
+
+predict.regsubsets<-function (object ,newdata ,id ,...){
+  form=as.formula(object$call [[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object ,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+  }
+
+k=10
+set.seed(seed)
+folds=sample(1:k,nrow(Boston),replace=TRUE)
+cv.errors=matrix(NA,k,13, dimnames=list(NULL, paste(1:13)))
+
+for(j in 1:k){
+  best.fit=regsubsets(crim~.,data=Boston[folds!=j,],nvmax=13)
+  for (i in 1:13){
+    pred=predict(best.fit,Boston[folds==j,],id=i)
+    cv.errors[j,i]=mean((Boston$crim[folds==j]-pred)^2)
+  }
+}
+
+root.mean.cv.errors=sqrt(apply(cv.errors ,2,mean))
+plot(root.mean.cv.errors,type="b")
+
+print(paste("Best Subset Selection RMSE:",root.mean.cv.errors[12],sep=" "))
+```
+
+Lowest cross-validated error occurs with 12 predictors.
+
+
+##Lasso
+```{r,echo=T}
+library(glmnet)
+X<-model.matrix(crim~.,data=Boston)[,-1]
+y<-Boston[,"crim"]
+
+set.seed(seed)
+grid=10^seq(10,-2,length=1000)
+cv.lasso.mod=cv.glmnet(X,y,alpha=1,lambda=grid,thresh=1e-12)
+
+plot(cv.lasso.mod)
+lasso.bestlam<-cv.lasso.mod$lambda.min
+lasso.bestlam
+lasso.cv.err<-cv.lasso.mod$cvm[cv.lasso.mod$lambda==cv.lasso.mod$lambda.min]
+print(paste("Lasso RMSE:",sqrt(lasso.cv.err),sep=" "))
+
+#Coefficients
+lasso.coeff<-predict(cv.lasso.mod,s=lasso.bestlam,type='coefficients')
+lasso.coeff
+```
+
+Two coefficients have been forced to zero.
+
+##Ridge
+```{r,echo=T}
+set.seed(seed)
+grid=10^seq(10,-2,length=1000)
+cv.ridge.mod=cv.glmnet(X,y,alpha=0,lambda=grid,thresh=1e-12)
+
+plot(cv.ridge.mod)
+ridge.bestlam<-cv.ridge.mod$lambda.min
+ridge.bestlam
+ridge.cv.err<-cv.ridge.mod$cvm[cv.ridge.mod$lambda==cv.ridge.mod$lambda.min]
+print(paste("Ridge RMSE:",sqrt(ridge.cv.err),sep=" "))
+
+#Coefficients
+ridge.coeff<-predict(cv.ridge.mod,s=ridge.bestlam,type='coefficients')
+ridge.coeff
+```
+
+
+##PCR
+```{r,echo=T}
+library(pls)
+set.seed(seed)
+pcr.fit<-pcr(crim~.,data=Boston,scale=T,validation="CV")
+
+validationplot(pcr.fit,val.type="MSEP")
+
+print(paste("PCR RMSE:",6.607,sep=" "))
+```
+
+
+(b) Propose a model (or set of models) that seem to perform well on this data set, and justify your answer. Make sure that you are evaluating model performance using validation set error, cross- validation, or some other reasonable alternative, as opposed to using training error.
+
+All models have roughly the same cross-validated error to the hundreths decimal place, except PCR and the full linear model - both of which have a slightly higher error. 

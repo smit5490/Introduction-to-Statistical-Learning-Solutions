@@ -1,0 +1,203 @@
+---
+title: 'Introduction to Statistical Learning Chapter 6 Problem 8'
+author: "Robert Smith"
+date: "8/3/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+8. In this exercise, we will generate simulated data, and will then use this data to perform best subset selection.
+
+(a) Use the rnorm() function to generate a predictor X of length n=100, as well as a noise vector e of length n=100.
+```{r,echo=T}
+set.seed(1234)
+X<-rnorm(100)
+e<-rnorm(100)
+```
+
+(b) Generate a response vector Y of length n=100 according to the model:
+                      Y=Bo+B1*X+B2*X^2+B3*X^3+e
+where Bo,B1,B2,B3 are constants of your choice.
+```{r,echo=T}
+Bo<-10
+B1<-4
+B2<-7
+B3<-2
+
+Y<-Bo+B1*X+B2*X^2+B3*X^3+e
+```
+
+(c) Use the regsubsets() function to perform best subset selection in order t ochoose the best model containing the predictors X, X^2,...,X^10. What is the best model obtained according to Cp, BIC, and adjusted R^2? Show some plots to provide evidence for your answer, and report the coefficients of the best model obtained. Note you will need to use the data.frame() function to create a single data set containing both X and Y.
+
+The best model obtained is a 3rd degree polynomial (e.g. contains X,X^2,X^3) as confirmed by all three metrics. 
+```{r,echo=T}
+library(leaps)
+df<-data.frame(X,Y)
+regfit.full = regsubsets(Y ~ poly(X, 10,raw=T), data = df, nvmax = 10)
+reg.summary=summary(regfit.full)
+
+plot(reg.summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+which.max(reg.summary$adjr2)
+points(3,reg.summary$adjr2[3],col="red",cex=2,pch=20)
+
+plot(reg.summary$cp,xlab="Number of Variables",ylab="Cp",type="l")
+which.min(reg.summary$cp)
+points(3,reg.summary$cp[3],col="red",cex=2,pch=20)
+
+plot(reg.summary$bic,xlab="Number of Variables",ylab="BIC",type="l")
+which.min(reg.summary$bic)
+points(3,reg.summary$bic[3],col="red",cex=2,pch=20)
+```
+
+The coefficients for the best subset model are:    
+```{r,echo=T}
+coef(regfit.full,3)
+```
+
+(d) Repeat (c), using forward stepwise selection and also using backwards stepwise selection. How does your answer compare to the results in (c)?
+
+Forward Stepwise Selection:
+```{r,echo=T}
+regfit.forward = regsubsets(Y ~ poly(X, 10, raw = T), data = df, nvmax = 10,method="forward")
+regfit.forward.summary=summary(regfit.forward)
+
+plot(regfit.forward.summary$adjr2,xlab="Number of Variables",ylab="Forward Selection Adjusted RSq",type="l")
+index=which.max(regfit.forward.summary$adjr2)
+points(index,regfit.forward.summary$adjr2[index],col="red",cex=2,pch=20)
+
+plot(regfit.forward.summary$cp,xlab="Number of Variables",ylab="Forward Selection Cp",type="l")
+index=which.min(regfit.forward.summary$cp)
+points(index,regfit.forward.summary$cp[index],col="red",cex=2,pch=20)
+
+plot(regfit.forward.summary$bic,xlab="Number of Variables",ylab="Forward Selection BIC",type="l")
+index=which.min(regfit.forward.summary$bic)
+points(index,regfit.forward.summary$bic[index],col="red",cex=2,pch=20)
+```
+
+
+Coefficients for the forward stepwise selection model are:
+```{r,echo=T}
+coef(regfit.forward,3)
+```
+
+Backward Stepwise Selection:
+```{r,echo=T}
+regfit.backward = regsubsets(Y ~ poly(X, 10, raw = T), data = df, nvmax = 10,method="backward")
+regfit.backward.summary=summary(regfit.backward)
+
+plot(regfit.backward.summary$adjr2,xlab="Number of Variables",ylab="Backward Selection Adjusted RSq",type="l")
+index=which.max(regfit.backward.summary$adjr2)
+points(index,regfit.backward.summary$adjr2[index],col="red",cex=2,pch=20)
+
+plot(regfit.backward.summary$cp,xlab="Number of Variables",ylab="Backward Selection Cp",type="l")
+index=which.min(regfit.backward.summary$cp)
+points(index,regfit.backward.summary$cp[index],col="red",cex=2,pch=20)
+
+plot(regfit.backward.summary$bic,xlab="Number of Variables",ylab="Backward Selection BIC",type="l")
+index=which.min(regfit.backward.summary$bic)
+points(index,regfit.backward.summary$bic[index],col="red",cex=2,pch=20)
+```
+
+Coefficients for the backward stepwise selection model are:
+```{r,echo=T}
+coef(regfit.backward,3)
+```
+
+All three feature selection methods produce the same polynomail & coefficients.
+
+(e) Now fit a lasso model to the simulated data, again using X,X2, . . . , X 10 as predictors. Use cross validation to select the optimal value of λ. Create plots of the cross-validation error as a function of λ. Report the resulting coefficient estimates, and discuss the results obtained.
+
+```{r,echo=T}
+library(glmnet)
+#Note that glmnet function automatically converts qualitative features to dummy variables and scales those that are numeric.
+set.seed(1234)
+grid=10^seq(1,-3,length=100)
+X<-model.matrix(Y~poly(X,10,raw=T))[,-1]
+cv.lasso.mod=cv.glmnet(X,Y,alpha=1,lambda=grid)
+plot(cv.lasso.mod)
+bestlam<-cv.lasso.mod$lambda.min
+lam_se1<-cv.lasso.mod$lambda.1se
+print(paste("The λ with the lowest cross-validated error is: ",round(bestlam,3),sep=""))
+print(paste("The λ that is 1 standard error above the lowest cross-validated error is: ",round(lam_se1,3),sep=""))
+```
+
+Consider coefficients of lasso model with best λ (e.g. lowest cross-validated error):
+```{r,echo=T}
+final.lasso<-glmnet(X,Y,alpha=1,lambda=bestlam)
+print(coef(final.lasso))
+```
+Coefficients of lasso model have nearly identical coefficients to the previously identified models, with the addition of a very small coefficient for the X10 term. 
+
+If we evaluate the model that has a λ 1 standard error above the minimum cross-validated error, we get the same terms as the previously identified models with nearly identical coefficients:
+```{r,echo=T}
+final.lasso<-glmnet(X,Y,alpha=1,lambda=lam_se1)
+print(coef(final.lasso))
+```
+
+(f) Now generate a response vector Y according to the model:
+Y=Bo+B7*X^7+e
+and perform best subset selection and the lasso. Discuss the results obtained.
+```{r,echo=T}
+set.seed(1234)
+X<-rnorm(100)
+e<-rnorm(100)
+Bo<-10
+B7<-3
+Y<-Bo+B7*X^7+e
+df<-data.frame(x=X,y=Y)
+```
+
+Perform Best Subset Selection:
+```{r,echo=T}
+regfit.full = regsubsets(y ~ poly(x, 10,raw=T), data = df, nvmax = 10)
+reg.summary=summary(regfit.full)
+
+plot(reg.summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+index<-which.max(reg.summary$adjr2)
+points(index,reg.summary$adjr2[index],col="red",cex=2,pch=20)
+
+plot(reg.summary$cp,xlab="Number of Variables",ylab="Cp",type="l")
+index<-which.min(reg.summary$cp)
+points(index,reg.summary$cp[index],col="red",cex=2,pch=20)
+
+plot(reg.summary$bic,xlab="Number of Variables",ylab="BIC",type="l")
+index<-which.min(reg.summary$bic)
+points(index,reg.summary$bic[index],col="red",cex=2,pch=20)
+
+coef(regfit.full,index)
+```
+The coefficients for a single term seventh degree polynomial closely approximate the underlying function.
+
+Perform Lasso Regression:
+```{r,echo=T}
+X<-model.matrix(y~poly(x,10,raw=T),data=df)[,-1]
+set.seed(1234)
+grid=10^seq(10,-2,length=100)
+cv.lasso.mod=cv.glmnet(X,Y,alpha=1,lambda=grid)
+plot(cv.lasso.mod)
+bestlam<-cv.lasso.mod$lambda.min
+lam_se1<-cv.lasso.mod$lambda.1se
+print(paste("The λ with the lowest cross-validated error is: ",round(bestlam,3),sep=""))
+print(paste("The λ that is 1 standard error above the lowest cross-validated error is: ",round(lam_se1,3),sep=""))
+```
+
+Consider coefficients of lasso model with best λ (e.g. lowest cross-validated error):
+```{r,echo=T}
+final.lasso<-glmnet(X,Y,alpha=1,lambda=bestlam)
+print(coef(final.lasso))
+```
+Model with minimum CV error has coefficients for each polynomial term. 
+
+Consider the model that has a λ 1 standard error above the minimum cross-validated error:
+```{r,echo=T}
+final.lasso<-glmnet(X,Y,alpha=1,lambda=lam_se1)
+print(coef(final.lasso))
+```
+Five polynomial coefficients are zero.
