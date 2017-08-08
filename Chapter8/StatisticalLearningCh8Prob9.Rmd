@@ -1,0 +1,115 @@
+---
+title: "Introduction to Statistical Learning Chapter 8 Problem 9"
+author: "Robert Smith"
+date: "8/7/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+9. This problem involves the `OJ` data set which is part of the ISLR package.
+
+(a) Create a trainint set containing a random sample of 800 observations, and a test set containing the remaining observations.
+```{r,echo=T}
+library(ISLR)
+data(OJ)
+
+set.seed(1234)
+nobs<-nrow(OJ)
+train_obs<-sample(1:nobs,800)
+train_set<-OJ[train_obs,]
+test_set<-OJ[-train_obs,]
+```
+
+(b) Fit a tree to the training data, with Purchase as the response and the other variables as predictors. Use the `summary` function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?
+```{r,echo=T}
+library(tree)
+tree_model<-tree(Purchase~.,data=train_set)
+tree_summary<-summary(tree_model)
+print(paste("The training error rate:",tree_summary$misclass[1]/tree_summary$misclass[2]),sep=" ")
+print(paste("Terminal Nodes:",tree_summary$size),sep=" ")
+```
+
+The decision tree only used `LoyalCH` and `PriceDiff` to determine which orange juice would be purchased.
+
+(c) Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal modes, and interpret the information displayed.
+```{r,echo=T}
+tree_model
+```
+
+
+Consider node 8. The model found the lowest gini index (e.g. greatest gain in purity) in the LoyalCH variable by splitting on it 3 times. There are 54 observations that met the criteria:  
+  - LoyalCH < 0.5036 &
+  - LoyalCH < 0.276142 &
+  - LoyalCH < 0.0356415
+These customers were classified as likely purchasing Minute Maid Orange Juice.
+
+(d) Create a plot of the tree, and interpret the results
+```{r,echo=T}
+plot(tree_model)
+text(tree_model,pretty=0)
+```
+
+Loyalty to Citrus Hill Orange Juice is the best feature for determining which orange juice is going to be purchased. Those with high loyalty to Citrus Hill will purchase Citrus Hill Orange Juice, unless the price of Citrus Hill is $0.39 higher than Minute Maid.   
+Customers with low brand loyalty to Citrus Hill will purchase Minute Maid, unless the price of Minute Maid is $0.05 greater than Citrus Hill. At that price point, customers will purchase Citrus Hill.   
+
+(e) Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the error rate?  
+```{r,echo=T}
+pred<-predict(tree_model,test_set,type="class")
+cfm<-table(pred,test_set$Purchase)
+print(cfm)
+
+error_rate<-(cfm[1,2]+cfm[2,1])/nrow(test_set)
+print(paste("Test Error Rate:",round(error_rate,3),sep=" "))
+```
+
+(f) Apply cv.tree() function to the training set in order to determine the optimal tree size. 
+```{r,echo=T}
+set.seed(1)
+cv.tree_model<-cv.tree(tree_model)
+cv.tree_model
+```
+
+(g) Produce a plot with tree size on the x-axis and cross-validated classification error on the y-axis.
+```{r,echo=T}
+plot(cv.tree_model$size,cv.tree_model$dev,type="b")
+```
+
+(h) Which tree size corresponds to the lowest cross-validated classification error rate?  
+Lowest cross-validated error corresponds to a tree with 7 nodes.  
+  
+(i) Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.  
+```{r,echo=T}
+prune.cv.tree_model<-prune.tree(tree_model,best=7)
+plot(prune.cv.tree_model)
+text(prune.cv.tree_model,pretty=0)
+```
+
+(j) Compare the training error rates between the pruned and unpruned trees. Which is higher?
+```{r,echo=T}
+summary.prune.cv.tree_model<-summary(prune.cv.tree_model)
+summary.tree_model<-summary(tree_model)
+
+print(paste("Pruned Tree Training Misclassification Error Rate:",round(summary.prune.cv.tree_model$misclass[1]/summary.prune.cv.tree_model$misclass[2],4),sep=" "))
+print(paste("Unpruned tree Training Misclassification Error Rate:",round(summary.tree_model$misclass[1]/summary.tree_model$misclass[2],4),sep=" "))
+```
+
+The training error rates are equivalent. 
+
+(k) Compare the test error rates between the pruned and unpruned trees. Which is higher?
+```{r,echo=T}
+pred<-predict(prune.cv.tree_model,test_set,type="class")
+cfm<-table(pred,test_set$Purchase)
+
+pruned_error_rate<-(cfm[1,2]+cfm[2,1])/nrow(test_set)
+print(paste("Pruned Tree Test Error Rate:",round(pruned_error_rate,3),sep=" "))
+print(paste("Unpruned Tree Test Error Rate:",round(error_rate,3),sep=" "))
+```
+
+The two trees have equivalent test error rates.

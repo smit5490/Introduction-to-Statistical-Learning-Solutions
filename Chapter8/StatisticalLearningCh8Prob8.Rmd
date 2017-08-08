@@ -1,0 +1,112 @@
+---
+title: "Introduction to Statistical Learning Chapter 8 Problem 8"
+author: "Robert Smith"
+date: "8/6/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+8. In the lab, a classification tree was applied to the `Carseats` data set after converting `Sales` into a qualitative response variable. Now we will seek to predict `Sales` using regression trees and related approchaes, treating the response as a quantitative variable. 
+
+(a) Split the data into a training set and test set.
+```{r,echo=T}
+library(ISLR)
+data(Carseats)
+
+set.seed(1234)
+nobs<-nrow(Carseats)
+train_obs<-sample(1:nobs,nobs*.5)
+train_set<-Carseats[train_obs,]
+test_set<-Carseats[-train_obs,]
+```
+
+(b) Fit a regression tree to the training set. Plot the tree, and interpret the results. What test MSE do you obtain?
+```{r,echo=T}
+library(tree)
+tree_model<-tree(Sales~.,data=train_set)
+plot(tree_model)
+text(tree_model,pretty=0)
+```
+
+Similar results are obtained compared to the tree lab. The main factor in determinine carseat sales is shelf location, followed by price.  
+```{r,echo=T}
+pred<-predict(tree_model,test_set)
+MSE<-mean((test_set$Sales-pred)^2)
+print(paste("Test MSE:",round(MSE,3),sep=" "))
+```
+
+(c) Use cross-validation in order to determine the optimal level of tree complexity. Does pruning the tree improve the test MSE?  
+```{r,echo=T}
+set.seed(1)
+cv.tree_model<-cv.tree(tree_model)
+cv.tree_model
+
+par(mfrow=c(1,2))
+plot(cv.tree_model$size,cv.tree_model$dev,type="b")
+plot(cv.tree_model$k,cv.tree_model$dev,type="b")
+```
+
+Lowest cross-validated error corresponds to a tree with 10 nodes.  
+```{r,echo=T}
+prune.cv.tree_model<-prune.tree(tree_model,best=10)
+plot(prune.cv.tree_model)
+text(prune.cv.tree_model,pretty=0)
+```
+
+Predict test MSE on pruned tree:  
+```{r,echo=T}
+pred<-predict(prune.cv.tree_model,test_set)
+MSE<-mean((test_set$Sales-pred)^2)
+print(paste("Cross-Validated Test MSE:",round(MSE,3),sep=" "))
+```
+
+Pruning did marginally reduce the test MSE.
+
+(d) Use the bagging apprach in order to analyze this data. What test MSE do you obtain? Use the `importance()` function to determine which variables are most important.  
+
+Recall that bagging is just a special case of Random Forest where all predictors are considered at each split:
+```{r,echo=T}
+library(randomForest)
+set.seed(1234)
+bag.tree_model<-randomForest(Sales~.,data=train_set,mtry=10,importance=T)
+bag.tree_model
+
+pred<-predict(bag.tree_model,test_set)
+MSE<-mean((test_set$Sales-pred)^2)
+print(paste("Bagged Test MSE:",round(MSE,3),sep=" "))
+
+importance(bag.tree_model)
+varImpPlot(bag.tree_model)
+```
+
+The test MSE is reducted by approximately 40%. As indicated by the variable importance graphs, the most important variables for prediction are carseat price and shelf location.
+
+(e) Use random forests to analyze this data. What test MSE do you obtain? Use the `importance` function to determine which variables are most important. Describe the effect of *m*, the number of variables considered at each split, on the error rate obtained.  
+
+```{r,echo=T}
+MSE_List<-rep(NA,10)
+OOB_List<-rep(NA,10)
+for (i in 1:10){
+set.seed(1234)
+bag.tree_model<-randomForest(Sales~.,data=train_set,mtry=i,importance=T)
+OOB_List[i]<-bag.tree_model$mse[500]
+pred<-predict(bag.tree_model,test_set)
+MSE_List[i]<-mean((test_set$Sales-pred)^2)
+}
+matplot(1:10,cbind(MSE_List,OOB_List),pch=19,col=c("red","blue"),type="b",ylab="Mean Squared Error")
+legend("topright",legend=c("Test","OOB"),pch=19,col=c("red","blue"))
+```
+
+Based on the plot, it appears that the consideration of 6 variables at each split minimizes the test MSE:  
+```{r,echo=T}
+final.bag.tree_model<-randomForest(Sales~.,data=train_set,mtry=6,importance=T)
+importance(final.bag.tree_model)
+varImpPlot(final.bag.tree_model)
+```

@@ -1,0 +1,99 @@
+---
+title: "Introduction to Statistical Learning Chapter 8 Problem 10"
+author: "Robert Smith"
+date: "8/7/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Exercises
+
+##Applied
+
+10. We now use boosting to predict `Salary` in the `Hitters` dataset.
+
+(a) Remove the observations for whom the salary information is unknown, and then log-transform the salaries
+```{r,echo=T}
+library(ISLR)
+data(Hitters)
+Hitters<-Hitters[is.na(Hitters$Salary)==F,]
+Hitters$Salary<-log(Hitters$Salary)
+```
+
+(b) Create a training set to consider the first 200 observations, and a test set consisting of the remaining observations.
+```{r,echo=T}
+train_set<-Hitters[1:200,]
+test_set<-Hitters[201:nrow(Hitters),]
+```
+
+(c) Perform boosting on the training set with 1,000 trees for a range of values of the shrinkage parameter, λ. Produce a plot with different shrinkage values on the x-axis and the corresponding training set MSE on the y-axis.
+```{r,echo=T}
+library(gbm)
+
+train_MSE<-rep(NA,381)
+test_MSE<-rep(NA,381)
+mtry<-10^seq(-4,-.2,.01)
+for (i in 1:length(mtry)){
+set.seed(1)
+boost_model<-gbm(Salary~.,data=train_set,distribution="gaussian",n.trees=1000,interaction.depth=4,shrinkage=mtry[i],verbose=F)
+pred_values<-predict(boost_model,train_set,n.trees=1000)
+train_MSE[i]<-mean((train_set$Salary-pred_values)^2)
+pred_values<-predict(boost_model,test_set,n.trees=1000)
+test_MSE[i]<-mean((test_set$Salary-pred_values)^2)
+}
+plot(mtry,train_MSE,type="b",xlab="Shinkage Parameter",ylab="Training MSE",main="Training MSE vs Boosting Shrinkage Parameter")
+```
+
+(d) Produce a plot with different shrinkage values on the x-axis and the corresponding test set MSE on the y-axis.  
+```{r,echo=T}
+plot(mtry,test_MSE,type="b",xlab="Shinkage Parameter",ylab="Test MSE",main="Test MSE vs Boosting Shrinkage Parameter")
+```
+
+(e) Compare the test MSE of boosting to the test MSE that results from applying two of the regression approaches seen in Chapters 3 and 6.
+
+Consider Basic Linear Regression
+```{r,echo=T}
+linear_mod<-lm(Salary~.,data=train_set)
+pred<-predict(linear_mod,test_set)
+test_MSE<-mean((test_set$Salary-pred)^2)
+print(test_MSE)
+```
+
+Consider Lasso Regression with Cross-Validation
+```{r,echo=T}
+library(glmnet)
+
+set.seed(1234)
+grid=10^seq(1,-3,length=100)
+X_train<-model.matrix(Salary~.,data=train_set)[,-1]
+X_test<-model.matrix(Salary~.,data=test_set)[,-1]
+
+cv.lasso.mod=cv.glmnet(X_train,train_set$Salary,alpha=1,lambda=grid)
+bestlam<-cv.lasso.mod$lambda.min
+
+lasso_pred<-predict(cv.lasso.mod,s=bestlam,newx=X_test)
+lasso.err<-mean((lasso_pred-test_set$Salary)^2)
+print(lasso.err)
+```
+
+Both methods have considerably higher error.
+
+(f) Which variables appear to be the most important predictors in the boosted model?
+```{r,echo=T}
+summary(boost_model)
+```
+
+CAtBat is by far the most important predictor in the boosted model, followed by CHmRun, CRuns, AtBat, and PutOuts variables that have nearly the same relative importance. 
+
+(g) Now apply bagging to the training set. What is the test set MSE for this approach?
+```{r,echo=T}
+library(randomForest)
+set.seed(1234)
+bag.tree_model<-randomForest(Salary~.,data=train_set,mtry=19,importance=T)
+
+pred<-predict(bag.tree_model,test_set)
+MSE<-mean((test_set$Salary-pred)^2)
+print(paste("Bagged Test MSE:",round(MSE,3),sep=" "))
+```
