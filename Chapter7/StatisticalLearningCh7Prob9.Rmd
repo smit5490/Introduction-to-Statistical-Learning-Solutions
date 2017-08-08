@@ -1,0 +1,136 @@
+---
+title: "Introduction to Statistical Learning Chapter 7 Problem 9"
+author: "Robert Smith"
+date: "8/3/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Exercises
+
+##Applied
+
+9. This question uses the variables `dis` (the weighted mean of the distances to five Boston employment centers) and nox (nitrogen oxides concentration in parts per 10 million) from the `Boston` data. We will treat `dis` as the predictor and `nox` as the response.
+
+(a) Use the `poly()` function to fit a cubic polynomial regression to predict `nox` using `dis`. Report the regression output, and plot the resulting data and polynomial fits.
+```{r,echo=T}
+library(MASS)
+data(Boston)
+
+#Fit Cubic Polynomial Model
+cubic.fit<-lm(nox~poly(dis,3),data=Boston)
+summary(cubic.fit)
+
+#Predict nox by dis grid
+dislims=range(Boston$dis)
+dis.grid=seq(from=dislims[1],to=dislims[2],by=.01)
+pred<-predict(cubic.fit,newdata=list(dis=dis.grid),se=TRUE)
+se.bands<-cbind(pred$fit+2*pred$se.fit,pred$fit-2*pred$se.fit)
+
+#Plot resulting fit
+par(mfrow=c(1,1),mar=c(4.5,4.5,1,1),oma=c(0,0,4,0))
+plot(Boston$dis,Boston$nox,cex=.5,col="darkgrey")
+title("Cubic Polynomial Model",outer=TRUE)
+lines(dis.grid,pred$fit,lwd=2,col="blue")
+matlines(dis.grid,se.bands,lwd=1,col="blue",lty=3)
+```
+
+(b) Plot the polynomial fits for a range of different polynomial degrees (say, from 1 to 10), and report the associated residual sum of squares.
+```{r,echo=T}
+rss<-rep(NA,10)
+for (i in 1:10){
+  glm.fit<-glm(nox~poly(dis,i),data=Boston)
+  rss[i]<-sum(glm.fit$residuals^2)
+}
+
+plot(rss,type="l",main="Residual Sum of Squares",xlab="Degree of Polynomial",ylab="RSS")
+```
+
+(c) Perform cross-validation or another approach to select the optimal degree for the polynomial, and explain your results.
+```{r,echo=T}
+library(boot)
+cv.errors<-rep(NA,10)
+for (i in 1:10){
+  glm.fit<-glm(nox~poly(dis,i),data=Boston)
+  set.seed(1234)
+  cv.glm.mod=cv.glm(Boston,glm.fit,K=10)
+  cv.errors[i]<-cv.glm.mod$delta[2]
+}
+
+#Plot Cross-Validated Errors
+index<-which.min(cv.errors)
+plot(cv.errors,type="l")
+points(index,cv.errors[index],col="red",cex=2,pch=20)
+```
+
+The optimal model is a degree 3 polynomial. 
+
+(d) Use the `bs()` function to fit a regression spline to predict `nox` using `dis`. Report the output for the fit using four degrees of freedom. How did you choose the knots? Plot the resulting fit.
+
+```{r,echo=T}
+library(splines)
+spline.fit<-lm(nox~bs(dis,df=4),data=Boston)
+attr(spline.fit$terms, "predvars")
+attr(bs(Boston$dis,df=4),"knots")
+
+#Predict nox by dis grid
+dislims=range(Boston$dis)
+dis.grid=seq(from=dislims[1],to=dislims[2],by=.01)
+pred<-predict(spline.fit,newdata=list(dis=dis.grid),se=TRUE)
+se.bands<-cbind(pred$fit+2*pred$se.fit,pred$fit-2*pred$se.fit)
+
+#Plot resulting fit
+par(mfrow=c(1,1),mar=c(4.5,4.5,1,1),oma=c(0,0,4,0))
+plot(Boston$dis,Boston$nox,cex=.5,col="darkgrey")
+title("Cubic Polynomial Spline Model",outer=TRUE)
+lines(dis.grid,pred$fit,lwd=2,col="blue")
+matlines(dis.grid,se.bands,lwd=1,col="blue",lty=3)
+```
+
+Knots are automatically chosen when degrees of freedom are specified. The single knot is specified at the 50th percentile of the `dis` data. 
+
+(e) Now fit a regression spline for a range of degrees of freedom, and plot the resulting fits and report the resulting RSS. Describe the results obtained:
+```{r,echo=T}
+par(mfrow=c(1,1),mar=c(4.5,4.5,1,1),oma=c(0,0,4,0))
+plot(Boston$dis,Boston$nox,cex=.5,col="darkgrey")
+title("Polynomial Spline Models",outer=TRUE)
+rss<-list(rep(NA,18))
+for (i in 3:20){
+  spline.fit<-lm(nox~bs(dis,df=i),data=Boston)
+  rss[i]<-sum(spline.fit$residuals^2)
+  print(paste("RSS for Spline with degree",i,":",rss[i],sep=" "))
+  #Predict nox by dis grid
+  dislims=range(Boston$dis)
+  dis.grid=seq(from=dislims[1],to=dislims[2],by=.01)
+  pred<-predict(spline.fit,newdata=list(dis=dis.grid),se=TRUE)
+
+  lines(dis.grid,pred$fit,lwd=2,col="blue")
+  matlines(dis.grid,lwd=1,col="blue",lty=3)
+}
+
+plot(3:20,rss[-c(1,2)],type="l")
+
+```
+
+Lowest RSS occurs with degree 19.
+
+(f) Perform cross-validation or another approach in order to select the best degrees of freedom for a regression spline on this data. Describe your results.
+```{r,echo=T}
+#Perform Cross-Validation
+cv.errors<-rep(NA,10)
+for (i in 3:16){
+  spline.fit<-glm(nox~bs(dis,df=i),data=Boston)
+  set.seed(1234)
+  cv.glm.mod=cv.glm(Boston,spline.fit,K=10)
+  cv.errors[i]<-cv.glm.mod$delta[2]
+}
+
+#Plot Cross-Validated Errors
+index<-which.min(cv.errors)
+plot(cv.errors,type="l")
+points(index,cv.errors[index],col="red",cex=2,pch=20)
+```
+
+Minimum cross-validated error occurs with df=10.

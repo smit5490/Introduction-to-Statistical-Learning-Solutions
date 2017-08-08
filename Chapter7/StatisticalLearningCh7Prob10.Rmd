@@ -1,0 +1,77 @@
+---
+title: "Introduction to Statistical Learning Chapter 7 Problem 10"
+author: "Robert Smith"
+date: "8/3/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercises
+
+##Applied
+
+10. This question relates to the College data set.
+
+(a) Split the data into a training set and a test set. Using out-of-state tuition as the response and the other variables as predictors, perform forward stepwise selection on the training set in order to identify a satisfactory model that uses just a subset of the predictors.
+```{r,echo=T}
+library(leaps);library(ISLR)
+data(College)
+
+set.seed(1234)
+obs<-nrow(College)
+train_obs<-sample(1:obs,obs*.5)
+train_set<-College[train_obs,]
+test_set<-College[-train_obs,]
+
+regfit.full = regsubsets(Outstate ~ ., data = train_set, nvmax = 17,method="forward")
+regfit.forward.summary=summary(regfit.full)
+
+plot(regfit.forward.summary$adjr2,xlab="Number of Variables",ylab="Forward Selection Adjusted RSq",type="l")
+index=which.max(regfit.forward.summary$adjr2)
+points(index,regfit.forward.summary$adjr2[index],col="red",cex=2,pch=20)
+
+plot(regfit.forward.summary$cp,xlab="Number of Variables",ylab="Forward Selection Cp",type="l")
+index=which.min(regfit.forward.summary$cp)
+points(index,regfit.forward.summary$cp[index],col="red",cex=2,pch=20)
+
+plot(regfit.forward.summary$bic,xlab="Number of Variables",ylab="Forward Selection BIC",type="l")
+index=which.min(regfit.forward.summary$bic)
+points(index,regfit.forward.summary$bic[index],col="red",cex=2,pch=20)
+```
+  
+Based on the BIC, a 10-variable model appears to perform best. Coefficients for the forward stepwise selection model are:  
+```{r,echo=T}
+coef(regfit.full,10)
+```
+
+(b) Fit a GAM on the training data, using out-of-state tuition as the response and the features selected in the previous step as the predictors. Plot the results, and explain your findings.
+```{r,echo=T}
+library(gam)
+
+gam1<-gam(Outstate~Private+s(Apps)+s(Accept)+s(Top10perc)+s(F.Undergrad)+s(Room.Board)+s(PhD)+ s(perc.alumni)+s(Expend)+s(Grad.Rate),data=College)
+
+par(mfrow = c(2, 3))
+plot(gam1, se = T, col = "blue")
+```
+
+(c) Evaluate the model obtained on the test set, and explain the results obtained. 
+```{r,echo=T}
+pred<-predict(gam1,test_set)
+RMSE<-sqrt(mean((pred-test_set$Outstate)^2))
+print(paste("Root Mean Squared Error:",round(RMSE,2),sep=" "))
+
+rss<-sum((pred-test_set$Outstate)^2)
+tss <- sum((test_set$Outstate - mean(test_set$Outstate))^2)
+r2 <- 1 - rss / tss
+print(paste("R-Squared:",round(r2,3),sep=" "))
+```
+The model has a .82 R-squared value on the test set, meaning that the 10-variable model explains 82% of the variance in the out-of-state tuition. The error when predicting out-of-state tuition is approximately $1,700.
+
+(d) For which variables, if any, is there evidence of a non-linear relationship with the response. 
+```{r,echo=T}
+summary(gam1)
+```
+Apps,Accept,F.Undergrad,Expend, and Grad.Rate variables all have a strong non-linear relationship with Outstate (at a 95% confidence level).
